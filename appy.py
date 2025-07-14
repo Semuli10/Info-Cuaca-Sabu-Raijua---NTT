@@ -91,14 +91,15 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
 
-    # Waktu validasi
+    # Format waktu validasi
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
     tstr = f"t+{forecast_hour:03d}"
 
-    ax.set_title(f"{label} Valid {valid_str}", loc="left", fontsize=10, fontweight="bold")
-    ax.set_title(f"GFS {tstr}", loc="right", fontsize=10, fontweight="bold")
+    # Judul tunggal tengah (solusi tumpang tindih)
+    ax.set_title(f"{label} • Valid {valid_str} • GFS {tstr}",
+                 fontsize=11, fontweight="bold", loc="center")
 
     # Plot data
     if is_contour:
