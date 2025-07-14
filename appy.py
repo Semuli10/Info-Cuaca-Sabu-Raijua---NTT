@@ -11,7 +11,7 @@ st.set_page_config(page_title="Cuaca Sabu Raijua", layout="wide")
 
 # Header Aplikasi
 st.title("📍 Prakiraan Cuaca Wilayah Kabupaten Sabu Raijua")
-st.subheader("Semuel Radja Uli_M8TB_14.24.0011")
+st.markdown("**Semuel Radja Uli_M8TB_14.24.0011**")
 st.caption("Visualisasi Realtime dari Model GFS via NOAA/NOMADS")
 
 @st.cache_data
