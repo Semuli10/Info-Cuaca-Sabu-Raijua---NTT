@@ -6,9 +6,13 @@ import cartopy.feature as cfeature
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Prakiraan Cuaca Sabu Raijua", layout="wide")
+# Konfigurasi halaman
+st.set_page_config(page_title="Cuaca Sabu Raijua", layout="wide")
+
+# Header Aplikasi
 st.title("📍 Prakiraan Cuaca Wilayah Kabupaten Sabu Raijua")
-st.header("Visualisasi Data GFS (Realtime via NOMADS NOAA)")
+st.subheader("Semuel Radja Uli_M8TB_14.24.0011")
+st.caption("Visualisasi Realtime dari Model GFS via NOAA/NOMADS")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
@@ -16,31 +20,34 @@ def load_dataset(run_date, run_hour):
     ds = xr.open_dataset(base_url)
     return ds
 
-st.sidebar.title("⚙️ Pengaturan")
+# Sidebar
+st.sidebar.title("⚙️ Pengaturan Visualisasi")
 
 # Input pengguna
 today = datetime.utcnow()
 run_date = st.sidebar.date_input("Tanggal Run GFS (UTC)", today.date())
 run_hour = st.sidebar.selectbox("Jam Run GFS (UTC)", ["00", "06", "12", "18"])
-forecast_hour = st.sidebar.slider("Jam ke depan", 0, 240, 0, step=1)
-parameter = st.sidebar.selectbox("Parameter", [
+forecast_hour = st.sidebar.slider("Jam Prediksi ke Depan", 0, 240, 0, step=1)
+parameter = st.sidebar.selectbox("Pilih Parameter Cuaca", [
     "Curah Hujan per jam (pratesfc)",
     "Suhu Permukaan (tmp2m)",
     "Angin Permukaan (ugrd10m & vgrd10m)",
     "Tekanan Permukaan Laut (prmslmsl)"
 ])
 
-if st.sidebar.button("🔎 Tampilkan Visualisasi"):
+# Tombol untuk visualisasi
+if st.sidebar.button("🔍 Tampilkan Visualisasi"):
     try:
         ds = load_dataset(run_date.strftime("%Y%m%d"), run_hour)
-        st.success("Dataset berhasil dimuat.")
+        st.success("Dataset berhasil dimuat dari server NOAA.")
     except Exception as e:
-        st.error(f"Gagal memuat data: {e}")
+        st.error(f"Gagal memuat data GFS: {e}")
         st.stop()
 
     is_contour = False
     is_vector = False
 
+    # Penyesuaian parameter dan warna
     if "pratesfc" in parameter:
         var = ds["pratesfc"][forecast_hour, :, :] * 3600
         label = "Curah Hujan (mm/jam)"
@@ -70,18 +77,21 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Fokus wilayah: Kabupaten Sabu Raijua
-    var = var.sel(lat=slice(-11.0, -10.0), lon=slice(121.5, 122.3))
+    # Filter wilayah SABU RAIJUA: zoom lokal
+    lat_min, lat_max = -11.0, -10.0
+    lon_min, lon_max = 121.5, 122.3
+    var = var.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     if is_vector:
-        u = u.sel(lat=slice(-11.0, -10.0), lon=slice(121.5, 122.3))
-        v = v.sel(lat=slice(-11.0, -10.0), lon=slice(121.5, 122.3))
+        u = u.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+        v = v.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
-    # Setup peta
+    # Plotting peta
     fig = plt.figure(figsize=(8, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([121.5, 122.3, -11.0, -10.0], crs=ccrs.PlateCarree())
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
 
+    # Waktu validasi
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
@@ -90,8 +100,10 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     ax.set_title(f"{label} Valid {valid_str}", loc="left", fontsize=10, fontweight="bold")
     ax.set_title(f"GFS {tstr}", loc="right", fontsize=10, fontweight="bold")
 
+    # Plot data
     if is_contour:
-        cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
+        cs = ax.contour(var.lon, var.lat, var.values, levels=15,
+                        colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
         ax.clabel(cs, fmt="%d", colors='black', fontsize=8)
     else:
         im = ax.pcolormesh(var.lon, var.lat, var.values,
@@ -103,19 +115,21 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         if is_vector:
             ax.quiver(var.lon[::2], var.lat[::2],
                       u.values[::2, ::2], v.values[::2, ::2],
-                      transform=ccrs.PlateCarree(), scale=500, width=0.002, color='black')
+                      transform=ccrs.PlateCarree(), scale=500,
+                      width=0.002, color='black')
 
-    # Tambahkan marker Sabu Raijua
+    # Marker lokasi Sabu Raijua
     sabu_lat, sabu_lon = -10.525, 121.85
     ax.plot(sabu_lon, sabu_lat, marker='o', color='red', markersize=6,
             transform=ccrs.PlateCarree(), label='Sabu Raijua')
     ax.text(sabu_lon + 0.05, sabu_lat, "Sabu Raijua", fontsize=8, color='red',
             transform=ccrs.PlateCarree())
 
-    # Fitur geospasial
+    # Fitur peta
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
+    # Tampilkan peta
     st.pyplot(fig)
