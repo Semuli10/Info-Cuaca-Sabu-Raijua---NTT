@@ -7,10 +7,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # Konfigurasi halaman
-st.set_page_config(page_title="Cuaca Sabu Raijua", layout="wide")
+st.set_page_config(page_title="Cuaca Nusa Tenggara Timur", layout="wide")
 
 # Header Aplikasi
-st.title("📍 Prakiraan Cuaca Wilayah Kabupaten Sabu Raijua")
+st.title("📍 Prakiraan Cuaca Provinsi Nusa Tenggara Timur (NTT)")
 st.markdown("**Semuel Radja Uli_M8TB_14.24.0011**")
 st.caption("Visualisasi Realtime dari Model GFS via NOAA/NOMADS")
 
@@ -78,9 +78,9 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
         st.warning("⚠️ Parameter tidak dikenali.")
         st.stop()
 
-    # Fokus ke wilayah SABU RAIJUA
-    lat_min, lat_max = -11.0, -10.0
-    lon_min, lon_max = 121.5, 122.3
+    # Filter wilayah NTT: lat -11.2 s.d. -7, lon 121 s.d. 131
+    lat_min, lat_max = -11.2, -7.0
+    lon_min, lon_max = 121.0, 131.0
     var = var.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     if is_vector:
@@ -88,7 +88,7 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
         v = v.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     # Plotting
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(10, 7))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
 
@@ -119,13 +119,6 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
                       u.values[::2, ::2], v.values[::2, ::2],
                       transform=ccrs.PlateCarree(), scale=500,
                       width=0.002, color='black')
-
-    # Tambahkan titik lokasi SABU RAIJUA
-    sabu_lat, sabu_lon = -10.525, 121.85
-    ax.plot(sabu_lon, sabu_lat, marker='o', color='red', markersize=6,
-            transform=ccrs.PlateCarree())
-    ax.text(sabu_lon + 0.05, sabu_lat, "Sabu Raijua", fontsize=8, color='red',
-            transform=ccrs.PlateCarree())
 
     # Tambah fitur peta
     ax.coastlines(resolution='10m', linewidth=0.8)
