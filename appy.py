@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Konfigurasi halaman
 st.set_page_config(page_title="Cuaca Sabu Raijua", layout="wide")
@@ -16,6 +16,7 @@ st.caption("Visualisasi Realtime dari Model GFS via NOAA/NOMADS")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
+    """Fungsi untuk memuat dataset dari NOMADS"""
     base_url = f"https://nomads.ncep.noaa.gov/dods/gfs_0p25_1hr/gfs{run_date}/gfs_0p25_1hr_{run_hour}z"
     ds = xr.open_dataset(base_url)
     return ds
@@ -23,11 +24,11 @@ def load_dataset(run_date, run_hour):
 # Sidebar
 st.sidebar.title("⚙️ Pengaturan Visualisasi")
 
-# Input pengguna
-today = datetime.utcnow()
-run_date = st.sidebar.date_input("Tanggal Run GFS (UTC)", today.date())
+# Gunakan default tanggal 3 hari ke belakang agar data tersedia
+default_date = datetime.utcnow().date() - timedelta(days=3)
+run_date = st.sidebar.date_input("Tanggal Run GFS (UTC)", default_date)
 run_hour = st.sidebar.selectbox("Jam Run GFS (UTC)", ["00", "06", "12", "18"])
-forecast_hour = st.sidebar.slider("Jam Prediksi ke Depan", 0, 240, 0, step=1)
+forecast_hour = st.sidebar.slider("Jam Prediksi ke Depan (t+)", 0, 240, 0, step=1)
 parameter = st.sidebar.selectbox("Pilih Parameter Cuaca", [
     "Curah Hujan per jam (pratesfc)",
     "Suhu Permukaan (tmp2m)",
@@ -35,19 +36,19 @@ parameter = st.sidebar.selectbox("Pilih Parameter Cuaca", [
     "Tekanan Permukaan Laut (prmslmsl)"
 ])
 
-# Tombol untuk visualisasi
+# Tombol Visualisasi
 if st.sidebar.button("🔍 Tampilkan Visualisasi"):
     try:
         ds = load_dataset(run_date.strftime("%Y%m%d"), run_hour)
-        st.success("Dataset berhasil dimuat dari server NOAA.")
+        st.success("✅ Dataset berhasil dimuat.")
     except Exception as e:
-        st.error(f"Gagal memuat data GFS: {e}")
+        st.error("❌ Gagal memuat data GFS. Coba pilih tanggal 2–5 hari ke belakang.")
         st.stop()
 
+    # Penentuan parameter
     is_contour = False
     is_vector = False
 
-    # Penyesuaian parameter dan warna
     if "pratesfc" in parameter:
         var = ds["pratesfc"][forecast_hour, :, :] * 3600
         label = "Curah Hujan (mm/jam)"
@@ -74,10 +75,10 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
         vmin, vmax = 990, 1025
         is_contour = True
     else:
-        st.warning("Parameter tidak dikenali.")
+        st.warning("⚠️ Parameter tidak dikenali.")
         st.stop()
 
-    # Filter wilayah SABU RAIJUA: zoom lokal
+    # Fokus ke wilayah SABU RAIJUA
     lat_min, lat_max = -11.0, -10.0
     lon_min, lon_max = 121.5, 122.3
     var = var.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
@@ -86,7 +87,7 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
         u = u.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
         v = v.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
-    # Plotting peta
+    # Plotting
     fig = plt.figure(figsize=(8, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
@@ -97,11 +98,11 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
     tstr = f"t+{forecast_hour:03d}"
 
-    # Judul tunggal tengah (solusi tumpang tindih)
+    # Judul tunggal agar tidak tumpang tindih
     ax.set_title(f"{label} • Valid {valid_str} • GFS {tstr}",
                  fontsize=11, fontweight="bold", loc="center")
 
-    # Plot data
+    # Visualisasi
     if is_contour:
         cs = ax.contour(var.lon, var.lat, var.values, levels=15,
                         colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
@@ -119,18 +120,18 @@ if st.sidebar.button("🔍 Tampilkan Visualisasi"):
                       transform=ccrs.PlateCarree(), scale=500,
                       width=0.002, color='black')
 
-    # Marker lokasi Sabu Raijua
+    # Tambahkan titik lokasi SABU RAIJUA
     sabu_lat, sabu_lon = -10.525, 121.85
     ax.plot(sabu_lon, sabu_lat, marker='o', color='red', markersize=6,
-            transform=ccrs.PlateCarree(), label='Sabu Raijua')
+            transform=ccrs.PlateCarree())
     ax.text(sabu_lon + 0.05, sabu_lat, "Sabu Raijua", fontsize=8, color='red',
             transform=ccrs.PlateCarree())
 
-    # Fitur peta
+    # Tambah fitur peta
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    # Tampilkan peta
+    # Tampilkan peta di Streamlit
     st.pyplot(fig)
